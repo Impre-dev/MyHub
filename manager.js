@@ -129,6 +129,8 @@ const Favicon = {
 
   forUrl(url, label) {
     if (!url) return null;
+    // Notre propre page : logo couleur direct
+    if (url.startsWith('chrome://sine/content/MyHub/')) return 'resources/MyHub.png';
     let host = '';
     try {
       host = new URL(url).hostname.replace(/^www\./, '');
@@ -392,8 +394,17 @@ function sectionHomepage(root) {
   );
 }
 
+const HUB_URL = 'chrome://sine/content/MyHub/manager.html';
+
 function sectionFavorites(root) {
   Grid.load(); // charge browser.newtabpage.pinned avant le premier rendu
+
+  // Auto-présence : MyHub s'assure d'avoir sa tuile dans la grille (pour l'urlbar du haut)
+  if (!Grid.entries.some((e) => e?.url === HUB_URL)) {
+    Grid.entries.push({ url: HUB_URL, label: 'MyHub', baseDomain: 'MyHub' });
+    Grid.save();
+  }
+
   Grid.snapshot(); // fige l'état d'ouverture comme point de retour
   const gridEl = el('div', { className: 'mh-grid', id: 'mh-grid' });
 

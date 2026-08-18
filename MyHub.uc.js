@@ -11,6 +11,8 @@
 
   const HUB_URL = 'chrome://sine/content/MyHub/manager.html';
 
+  const HUB_ICON = 'chrome://sine/content/MyHub/resources/MyHub.png';
+
   function openHub() {
     // Ouvre (ou focus) le hub dans un onglet
     for (const win of Services.wm.getEnumerator('navigator:browser')) {
@@ -23,6 +25,16 @@
       }
     }
     gBrowser.addTab(HUB_URL, { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
+  }
+
+  /** Favicon de la tab bar — les <link rel=icon> relatifs sont ignorés sur chrome://
+   *  → override event-driven de tab.image quand un tab affiche MyHub */
+  function patchTabIcon() {
+    const applyIcon = (tab) => {
+      if (tab?.linkedBrowser?.currentURI?.spec === HUB_URL) tab.image = HUB_ICON;
+    };
+    gBrowser.tabContainer.addEventListener('TabAttrModified', (e) => applyIcon(e.target));
+    gBrowser.tabContainer.addEventListener('TabSelect', (e) => applyIcon(e.target));
   }
 
   function init() {
@@ -42,6 +54,7 @@
     key.addEventListener('command', openHub);
     document.getElementById('mainKeyset').appendChild(key);
 
+    patchTabIcon(); // favicon coloré dans la barre d'onglets
     window.openMyHub = openHub;
     console.log('[MyHub] hotkey Ctrl+Alt+H actif — window.openMyHub() dispo');
   }
