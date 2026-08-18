@@ -23,6 +23,13 @@ const PREFS = {
   backupPinned: 'MyHub.backup.pinned',
 };
 
+/* ⚠️ NE JAMAIS importer NewTabUtils ici : la page obtient une INSTANCE SÉPARÉE
+ * du module (registre propre), au cache pinnedLinks vide → un save() écrase la
+ * pref avec un état vide (bug wipe 2026-08-18).
+ * Répartition des rôles : cette page écrit la pref brute ; MyHub.uc.js (contexte
+ * browser, VRAIE instance NewTabUtils) réconcilie le cache pinnedLinks à chaque
+ * changement de pref → notif "newtab-link-changed" → urlbar/newtab dynamiques. */
+
 /* ═══════════════ Utilitaires ═══════════════ */
 
 const Prefs = {
@@ -151,6 +158,9 @@ const Favicon = {
 const Grid = {
   entries: [], // [{url, label, baseDomain?} | null]
 
+  /** Source de vérité : la pref sur disque (synchronisée vers le cache
+   *  NewTabUtils par MyHub.uc.js côté browser). Normalisation label/title :
+   *  NewTabUtils resérialise la pref avec "title", MyHub écrit "label". */
   load() {
     try {
       this.entries = JSON.parse(Prefs.getStr(PREFS.pinned, '[]'));
@@ -159,10 +169,19 @@ const Grid = {
       this.entries = [];
     }
     if (!Array.isArray(this.entries)) this.entries = [];
+    for (const e of this.entries) {
+      if (e && !e.label) e.label = e.title;
+    }
   },
 
-  /** Écriture live (le snapshot d'ouverture est figé dans sectionFavorites) */
+  /** Écriture pref brute (le cache NewTabUtils est réconcilié par MyHub.uc.js).
+   *  Guard anti-wipe : refus d'écrire un état vide (la grille contient toujours
+   *  au moins la tuile MyHub — un état vide = lecture ratée, pas la réalité). */
   save() {
+    if (this.entries.filter(Boolean).length === 0) {
+      console.warn(TAG, 'save() bloqué : grille vide (protection anti-wipe)');
+      return;
+    }
     suppressObserver = true;
     try {
       Prefs.setStr(PREFS.pinned, JSON.stringify(this.entries));
@@ -172,21 +191,21 @@ const Grid = {
     toast('Favoris enregistrés ✓');
   },
 
-  /** Fige l'état courant comme point de retour (appelé une fois, à l'ouverture) */
+  /** Fige l'état affiché à l'ouverture comme point de retour (petite data → pref) */
   snapshot() {
-    Prefs.setStr(PREFS.backupPinned, Prefs.getStr(PREFS.pinned, '[]'));
+    Prefs.setStr(PREFS.backupPinned, JSON.stringify(this.entries));
   },
 
   restore() {
     const backup = Prefs.getStr(PREFS.backupPinned, '');
     if (!backup) return toast('Aucun snapshot disponible', true);
-    suppressObserver = true;
     try {
-      Prefs.setStr(PREFS.pinned, backup);
-    } finally {
-      suppressObserver = false;
+      this.entries = JSON.parse(backup);
+    } catch (e) {
+      return toast('Snapshot corrompu', true);
     }
-    this.load();
+    if (!Array.isArray(this.entries)) this.entries = [];
+    this.save();
     renderGrid();
     toast('Grille du début de session restaurée ✓');
   },
@@ -397,10 +416,15 @@ function sectionHomepage(root) {
 const HUB_URL = 'chrome://sine/content/MyHub/manager.html';
 
 function sectionFavorites(root) {
-  Grid.load(); // charge browser.newtabpage.pinned avant le premier rendu
+  Grid.load(); // charge la pref browser.newtabpage.pinned avant le premier rendu
 
-  // Auto-présence : MyHub s'assure d'avoir sa tuile dans la grille (pour l'urlbar du haut)
-  if (!Grid.entries.some((e) => e?.url === HUB_URL)) {
+  // Auto-présence : MyHub s'assure d'avoir sa tuile dans la grille (pour l'urlbar du haut).
+  // ⚠️ Guard anti-wipe : si la grille est VIDE au chargement, on ne bootstrap PAS
+  // (état suspect = lecture ratée quelque part) — la tuile sera ajoutée à la
+  // première vraie modification utilisateur.
+  if (Grid.entries.filter(Boolean).length === 0) {
+    console.warn(TAG, 'grille vide au chargement — auto-présence différée');
+  } else if (!Grid.entries.some((e) => e?.url === HUB_URL)) {
     Grid.entries.push({ url: HUB_URL, label: 'MyHub', baseDomain: 'MyHub' });
     Grid.save();
   }
@@ -444,9 +468,14 @@ function sectionFavorites(root) {
 
   root.append(gridEl, el('div', { className: 'mh-row' }, el('label', { textContent: 'Slots (favoris max)' }), slotsWrap, restoreBtn));
 
-  // Reflet des changements externes de la grille
+  // Reflet des changements externes de la grille (pin depuis le newtab natif, etc.)
+  // Anti-écho par comparaison d'état : NewTabUtils écrit la pref de façon asynchrone
+  // (après notre save()), donc le flag suppressObserver serait déjà reset. On ne
+  // re-render que si l'état a réellement changé → pas de re-render parasite.
   observePref(PREFS.pinned, () => {
+    const before = JSON.stringify(Grid.entries);
     Grid.load();
+    if (JSON.stringify(Grid.entries) === before) return; // écho de notre propre save()
     renderGrid();
   });
 }
