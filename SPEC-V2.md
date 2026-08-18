@@ -70,8 +70,14 @@ Un mod sans aucun contrat reste invisible du hub — rétro-compatible par const
    toute future page de mod Sine est auto-résolue (dernier patch manuel de ce type)
 3. **COMPACT_PATTERNS en pref** (`user.urlbar.compactPatterns`, séparateur `|`) —
    le compact set de l'urlbar devient éditable sans toucher au code
-4. **Canon d'icônes** : `CustomFavicon/icons/` = source unique ; `zen-about-favicons`
-   lit le même dossier pour sa mécanique SQLite ; MyHub et URLBar-2.0 scannent ce canon
+4. **Canon d'icônes** ✅ **fait (commits b923cbd/79d82fe/f739968/bd8a834)** — deux
+   propriétaires sémantiques : `CustomFavicon/icons/` = canon des icônes **couleur**
+   (domaines + sous-dossier `Chatbots/` pour les chatbots IA, chemin relatif dans
+   `favicon-map.json`) ; `zen-about-favicons/icons/{light,dark}/` = canon des icônes
+   **about:\* monochromes** (sa mécanique, sa maison). Consommateurs : URLBar-2.0 et
+   MyHub scannent les deux + `Chatbots/` avec parsing **basename** du map ;
+   BetterSidebot lit le canon CF (doublons supprimés). Dépendance de **données**
+   seulement, fallback gracieux partout (lettre/hostname si CF absent)
 5. **Fusion urlbar-mc-bg → URLBar-2.0** (CSS absorbé dans `theme.json.style`)
 
 ### V1.2 — Sidebar shell
@@ -168,3 +174,7 @@ pref browser.newtabpage.pinned
    auto-présence MyHub différée si grille vide au chargement.
 4. Champs : NewTabUtils resérialise la pref avec `title` ; MyHub utilise `label`
    → pinner les DEUX + normaliser `label ← title` à la lecture.
+5. **`PathUtils.join()` ET `joinRelative()` rejettent les segments contenant un
+   séparateur** (`NS_ERROR_FILE_UNRECOGNIZED_PATH`, vu sur Zen 2026-08) — pour un
+   sous-chemin (`"Chatbots/LeChat.png"`) : `PathUtils.join(base, ...rel.split(/[\\/]+/))`.
+   Symptôme piégeux : le `catch` de `loadConfig()` avalait l'erreur → cache vide silencieux.
