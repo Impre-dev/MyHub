@@ -1,0 +1,17 @@
+{
+  "id": "MyHub",
+  "name": "MyHub",
+  "description": "Hub de configuration — Accueil, Newtab, Favoris (grille drag & drop), prefs live. Point d'entrée futur de tous les mods Impre.",
+  "author": "Impre",
+  "version": "1.0.0",
+  "js": true,
+  "scripts": {
+    "MyHub.uc.js": {
+      "name": "MyHub — accès",
+      "description": "Hotkey Ctrl+Alt+H pour ouvrir le hub",
+      "include": ["chrome://browser/content/browser.xhtml"]
+    }
+  },
+  "tags": ["Javascript"],
+  "fork": ["zen"]
+}

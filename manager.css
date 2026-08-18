@@ -1,0 +1,297 @@
+/* MyHub — manager.css
+ * Design tokens issus du logo (molécule + œil) :
+ * accent bleu vif #2B7CE9, bleu nuit #1A365D, blanc #FFFFFF.
+ * body TRANSPARENT — wallpaper fourni dans une itération future.
+ */
+
+:root {
+  --mh-accent: #2b7ce9;
+  --mh-accent-soft: rgba(43, 124, 233, 0.15);
+  --mh-dark: #1a365d;
+  --mh-white: #ffffff;
+  --mh-text: #eaf1fb;
+  --mh-text-dim: #9fb4d0;
+  --mh-glass: rgba(20, 32, 52, 0.55);
+  --mh-glass-border: rgba(255, 255, 255, 0.12);
+  --mh-radius: 14px;
+  --mh-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --mh-text: #142034;
+    --mh-text-dim: #5a6e8c;
+    --mh-glass: rgba(255, 255, 255, 0.65);
+    --mh-glass-border: rgba(26, 54, 93, 0.12);
+    --mh-shadow: 0 8px 32px rgba(26, 54, 93, 0.15);
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: transparent; /* wallpaper plus tard */
+  color: var(--mh-text);
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+#myhub {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.mh-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 36px;
+}
+.mh-logo {
+  width: 64px;
+  height: 64px;
+}
+.mh-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--mh-text);
+}
+.mh-sub {
+  font-size: 14px;
+  color: var(--mh-text-dim);
+  margin-top: 2px;
+}
+
+/* ── Sections ───────────────────────────────────────────── */
+.mh-section {
+  background: var(--mh-glass);
+  border: 1px solid var(--mh-glass-border);
+  border-radius: var(--mh-radius);
+  box-shadow: var(--mh-shadow);
+  backdrop-filter: blur(14px);
+  padding: 22px 26px;
+  margin-bottom: 22px;
+}
+.mh-section h2 {
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--mh-accent);
+  margin-bottom: 16px;
+}
+
+/* ── Lignes de contrôle ─────────────────────────────────── */
+.mh-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.mh-row:last-child {
+  margin-bottom: 0;
+}
+.mh-row label {
+  font-size: 14px;
+  min-width: 170px;
+}
+.mh-hint {
+  font-size: 12px;
+  color: var(--mh-text-dim);
+  width: 100%;
+  padding-left: 182px;
+}
+
+input[type='url'],
+input[type='text'],
+input[type='number'] {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--mh-glass-border);
+  border-radius: 8px;
+  color: var(--mh-text);
+  padding: 8px 12px;
+  font-size: 14px;
+  flex: 1;
+  min-width: 220px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input[type='url']:focus,
+input[type='text']:focus,
+input[type='number']:focus {
+  border-color: var(--mh-accent);
+}
+input[type='number'] {
+  max-width: 110px;
+  min-width: 90px;
+}
+
+.mh-radio {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.mh-radio label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  min-width: auto;
+}
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--mh-accent);
+}
+
+button {
+  background: var(--mh-accent);
+  color: var(--mh-white);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    filter 0.15s,
+    opacity 0.15s;
+}
+button:hover {
+  filter: brightness(1.12);
+}
+button.mh-ghost {
+  background: transparent;
+  color: var(--mh-text-dim);
+  border: 1px solid var(--mh-glass-border);
+}
+button.mh-ghost:hover {
+  color: var(--mh-text);
+  border-color: var(--mh-accent);
+}
+
+.mh-status {
+  font-size: 13px;
+  color: var(--mh-text-dim);
+  padding: 8px 12px;
+  background: var(--mh-accent-soft);
+  border-radius: 8px;
+}
+
+/* ── Grille favoris ─────────────────────────────────────── */
+.mh-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.mh-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 6px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--mh-glass-border);
+  border-radius: 12px;
+  cursor: grab;
+  user-select: none;
+  transition:
+    border-color 0.15s,
+    transform 0.1s;
+}
+.mh-tile:hover {
+  border-color: var(--mh-accent);
+}
+.mh-tile:active {
+  cursor: grabbing;
+}
+.mh-tile.dragging {
+  opacity: 0.4;
+}
+.mh-tile.drag-over {
+  border-color: var(--mh-accent);
+  transform: scale(1.05);
+}
+.mh-tile img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.mh-tile .mh-letter {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--mh-white);
+  background: var(--mh-accent);
+  border-radius: 8px;
+}
+.mh-tile .mh-label {
+  font-size: 12px;
+  color: var(--mh-text);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+.mh-tile .mh-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: none;
+  gap: 2px;
+}
+.mh-tile:hover .mh-actions {
+  display: flex;
+}
+.mh-tile .mh-actions button {
+  padding: 2px 6px;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 6px;
+}
+.mh-tile-add {
+  border-style: dashed;
+  border-width: 2px;
+  cursor: pointer;
+  justify-content: center;
+  color: var(--mh-text-dim);
+  font-size: 13px;
+  background: transparent;
+}
+.mh-tile-add:hover {
+  color: var(--mh-accent);
+  border-color: var(--mh-accent);
+}
+
+/* ── Toast ──────────────────────────────────────────────── */
+.mh-toast {
+  margin-left: auto;
+  background: var(--mh-accent);
+  color: var(--mh-white);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 20px;
+  box-shadow: var(--mh-shadow);
+  transition: opacity 0.25s;
+}
+.mh-toast.warn {
+  background: #b63b39;
+}
