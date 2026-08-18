@@ -339,6 +339,7 @@ button.mh-ghost:hover {
 /* ── Toast ──────────────────────────────────────────────── */
 .mh-toast {
   position: fixed; /* hors flux — le header centré ne bouge jamais */
+  z-index: 1000; /* au-dessus des sections (stacking contexts) */
   bottom: 28px;
   left: 50%;
   transform: translate(-50%, 16px); /* sous l'écran → monte à l'apparition */
