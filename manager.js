@@ -149,12 +149,20 @@ const Favicon = {
     if (!url) return null;
     // Notre propre page : logo couleur direct
     if (url.startsWith('chrome://sine/content/MyHub/')) return 'resources/MyHub.png';
+    // about: direct → icône zen-about
+    const aboutMatch = url.match(/^about:([a-z]+)/);
+    if (aboutMatch && this.cache[aboutMatch[1]]) return this.cache[aboutMatch[1]];
     let host = '';
     try {
       host = new URL(url).hostname.replace(/^www\./, '');
     } catch (e) {}
+    // Lookup exact puis suffixe: "chat.z.ai" → "z.ai", "docs.zen-browser.app" → "zen-browser.app"
+    // (même logique que resolveIcon de CustomFavicon)
     if (this.domainMap[host] && this.cache[this.domainMap[host]]) {
       return this.cache[this.domainMap[host]];
+    }
+    for (const [domain, key] of Object.entries(this.domainMap)) {
+      if (host.endsWith('.' + domain) && this.cache[key]) return this.cache[key];
     }
     if (host && this.cache[host.split('.')[0]]) {
       return this.cache[host.split('.')[0]];
@@ -221,9 +229,12 @@ const Grid = {
     toast('Grille du début de session restaurée ✓');
   },
 
-  move(from, to) {
+  /** Déplacement par insertion : after=false → avant la cible, after=true → après */
+  insert(from, to, after) {
     const [item] = this.entries.splice(from, 1);
-    this.entries.splice(to, 0, item);
+    let target = after ? to + 1 : to;
+    if (from < target) target -= 1; // la suppression décale les index suivants
+    this.entries.splice(target, 0, item);
     this.save();
     renderGrid();
   },
@@ -311,7 +322,17 @@ function renderGrid() {
     actions.append(editBtn, delBtn);
     tile.appendChild(actions);
 
-    // Drag & drop
+    // Clic gauche : ouvrir le site dans un nouvel onglet
+    // (un vrai drag HTML5 ne déclenche pas click → dissociation native)
+    tile.addEventListener('click', () => {
+      const url = entry?.url;
+      if (!url) return;
+      const topWin = window.browsingContext?.topChromeWindow || window;
+      if (topWin.openTrustedLinkIn) topWin.openTrustedLinkIn(url, 'tab');
+      else window.open(url, '_blank');
+    });
+
+    // Drag & drop : insertion avant/après selon la moitié de la tuile survolée
     tile.addEventListener('dragstart', (ev) => {
       ev.dataTransfer.effectAllowed = 'move';
       ev.dataTransfer.setData('text/myhub-index', String(index));
@@ -320,15 +341,22 @@ function renderGrid() {
     tile.addEventListener('dragend', () => tile.classList.remove('dragging'));
     tile.addEventListener('dragover', (ev) => {
       ev.preventDefault();
-      tile.classList.add('drag-over');
+      const rect = tile.getBoundingClientRect();
+      const after = ev.clientX > rect.left + rect.width / 2;
+      tile.classList.toggle('drop-after', after);
+      tile.classList.toggle('drop-before', !after);
     });
-    tile.addEventListener('dragleave', () => tile.classList.remove('drag-over'));
+    tile.addEventListener('dragleave', () => {
+      tile.classList.remove('drop-before', 'drop-after');
+    });
     tile.addEventListener('drop', (ev) => {
       ev.preventDefault();
-      tile.classList.remove('drag-over');
+      const rect = tile.getBoundingClientRect();
+      const after = ev.clientX > rect.left + rect.width / 2;
+      tile.classList.remove('drop-before', 'drop-after');
       const from = parseInt(ev.dataTransfer.getData('text/myhub-index'), 10);
       const to = parseInt(tile.dataset.index, 10);
-      if (!isNaN(from) && !isNaN(to) && from !== to) Grid.move(from, to);
+      if (!isNaN(from) && !isNaN(to) && from !== to) Grid.insert(from, to, after);
     });
 
     gridEl.appendChild(tile);

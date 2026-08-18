@@ -56,7 +56,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 18px;
-  margin-bottom: 36px;
+  margin-bottom: 38px;
 }
 .mh-logo {
   width: 120px;
@@ -271,9 +271,13 @@ button.mh-ghost:hover {
 .mh-tile.dragging {
   opacity: 0.4;
 }
-.mh-tile.drag-over {
+.mh-tile.drop-before {
   border-color: var(--mh-accent);
-  transform: scale(1.05);
+  box-shadow: -4px 0 0 0 var(--mh-accent);
+}
+.mh-tile.drop-after {
+  border-color: var(--mh-accent);
+  box-shadow: 4px 0 0 0 var(--mh-accent);
 }
 .mh-tile img {
   width: 32px;
@@ -334,7 +338,9 @@ button.mh-ghost:hover {
 
 /* ── Toast ──────────────────────────────────────────────── */
 .mh-toast {
-  margin-left: auto;
+  position: fixed; /* hors flux — le header centré ne bouge jamais */
+  top: 28px;
+  right: 28px;
   background: var(--mh-accent);
   color: var(--mh-white);
   font-size: 13px;
