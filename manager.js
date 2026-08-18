@@ -21,6 +21,7 @@ const PREFS = {
   topSitesRows: 'browser.newtabpage.activity-stream.topSitesRows',
   maxPerRow: 'browser.newtabpage.activity-stream.topSitesMaxSitesPerRow',
   backupPinned: 'MyHub.backup.pinned',
+  page: 'MyHub.page',
 };
 
 /* ⚠️ NE JAMAIS importer NewTabUtils ici : la page obtient une INSTANCE SÉPARÉE
@@ -524,16 +525,57 @@ function sectionFavorites(root) {
   });
 }
 
-/* ═══════════════ Boot ═══════════════ */
+/* ═══════════════ Shell (V1.2) — pages + dock + routing hash ═══════════════ */
 
 const SECTIONS = [
   { id: 'homepage', title: 'Accueil & Démarrage', build: sectionHomepage },
   { id: 'favorites', title: 'Favoris', build: sectionFavorites },
 ];
 
-(async function boot() {
+const PAGES = [
+  { id: 'firefox', label: 'Firefox', sections: SECTIONS },
+  // V2.x : { id: 'mods', label: 'Mods', ... }, { id: 'favicons', label: 'Favicons', ... }
+];
+
+function hue(str) {
+  let h = 0;
+  for (const c of str) h = (h * 31 + c.charCodeAt(0)) % 360;
+  return h;
+}
+
+function buildNav() {
+  const nav = el('nav', { className: 'mh-nav', id: 'mh-nav' });
+  for (const p of PAGES) {
+    const btn = el('button', { className: 'mh-nav-btn', type: 'button' });
+    btn.dataset.page = p.id;
+    btn.dataset.tip = p.label; // tooltip pur CSS (::after)
+    btn.setAttribute('aria-label', p.label);
+    const img = el('img', { src: `resources/${p.id}.png`, alt: '' });
+    // Contrat icônes : resources/<id>.png, fallback lettre colorée si absent
+    img.addEventListener(
+      'error',
+      () => {
+        const letter = el('span', { className: 'mh-nav-letter', textContent: p.label.charAt(0).toUpperCase() });
+        letter.style.color = `hsl(${hue(p.label)} 70% 60%)`;
+        img.replaceWith(letter);
+      },
+      { once: true },
+    );
+    btn.append(img);
+    // Un seul geste : le hash pilote tout (hashchange → renderPage)
+    btn.addEventListener('click', () => {
+      location.hash = p.id;
+    });
+    nav.append(btn);
+  }
+  document.body.append(nav);
+}
+
+function renderPage(id) {
+  const page = PAGES.find((p) => p.id === id) || PAGES[0];
   const root = document.getElementById('mh-sections');
-  for (const s of SECTIONS) {
+  root.replaceChildren();
+  for (const s of page.sections) {
     const sec = el('section', { className: 'mh-section', id: `mh-${s.id}` });
     sec.append(el('h2', { textContent: s.title }));
     const body = el('div', {});
@@ -541,7 +583,21 @@ const SECTIONS = [
     sec.append(body);
     root.append(sec);
   }
+  document.querySelectorAll('.mh-nav-btn').forEach((b) => {
+    b.classList.toggle('active', b.dataset.page === page.id);
+  });
+  Prefs.setStr(PREFS.page, page.id); // dernière page mémorisée
+}
+
+(async function boot() {
+  buildNav();
   await Favicon.load();
-  renderGrid(); // re-rend avec favicons
-  console.log(`${TAG} prêt — ${SECTIONS.length} sections`);
+  const fromHash = location.hash.slice(1);
+  const saved = Prefs.getStr(PREFS.page, '');
+  const initial = PAGES.some((p) => p.id === fromHash) ? fromHash : PAGES.some((p) => p.id === saved) ? saved : PAGES[0].id;
+  history.replaceState(null, '', '#' + initial); // pas d'événement parasite au boot
+  renderPage(initial);
+  renderGrid(); // re-rend la grille avec favicons
+  window.addEventListener('hashchange', () => renderPage(location.hash.slice(1) || PAGES[0].id));
+  console.log(`${TAG} prêt — ${PAGES.length} page(s), dock sur « ${initial} »`);
 })();

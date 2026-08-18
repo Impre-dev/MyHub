@@ -11,8 +11,9 @@
   --mh-white: #ffffff;
   --mh-text: #eaf1fb;
   --mh-text-dim: #9fb4d0;
-  --mh-glass: rgba(8, 10, 14, 0); /* glass = blur pur, le fond sombre existe déjà */
+  --mh-glass: rgba(8, 10, 14, 0); /* glass = blur pur, le wallpaper existe derrière */
   --mh-glass-border: rgba(255, 255, 255, 0.12);
+  --mh-scrim: rgba(5, 8, 14, 0.35); /* voile de lisibilité au-dessus du wallpaper */
   --mh-radius: 14px;
   --mh-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
@@ -23,6 +24,7 @@
     --mh-text-dim: #5a6e8c;
     --mh-glass: rgba(255, 255, 255, 0);
     --mh-glass-border: rgba(26, 54, 93, 0.12);
+    --mh-scrim: rgba(0, 0, 0, 0.13);
     --mh-shadow: 0 8px 32px rgba(26, 54, 93, 0.15);
   }
 }
@@ -38,10 +40,22 @@ html {
 }
 html,
 body {
-  background: transparent; /* wallpaper plus tard */
   color: var(--mh-text);
   font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
   min-height: 100vh;
+}
+body {
+  background: url('resources/neon_portal.jpg') center / cover no-repeat fixed;
+}
+/* Scrim de lisibilité au-dessus du wallpaper, sous le contenu (tunable) */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--mh-scrim);
+  z-index: -1;
+  pointer-events: none;
+  backdrop-filter: blur(23px);
 }
 
 #myhub {
@@ -362,4 +376,91 @@ button.mh-ghost:hover {
 }
 .mh-toast.warn {
   background: #b63b39;
+}
+
+/* ── Nav dock (shell V1.2) ───────────────────────────────── */
+.mh-nav {
+  position: fixed; /* hors flux — le contenu ne bouge jamais */
+  top: 1vh; /* barre sur 90% de la hauteur, centrée verticalement */
+  height: 98vh;
+  left: 5px; /* légèrement décalée du bord */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 19px 8px;
+  background: var(--mh-glass);
+  border: 1px solid var(--mh-glass-border);
+  border-radius: var(--mh-radius);
+  box-shadow: var(--mh-shadow);
+  backdrop-filter: blur(14px);
+  z-index: 900; /* sous le toast (1000), au-dessus des sections */
+}
+.mh-nav-btn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--mh-text-dim);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    transform 0.15s;
+}
+.mh-nav-btn:hover,
+.mh-nav-btn:focus-visible {
+  background: var(--mh-accent-soft);
+  color: var(--mh-text);
+  transform: scale(1.06);
+  outline: none;
+}
+.mh-nav-btn.active {
+  background: var(--mh-accent-soft);
+  color: var(--mh-accent);
+}
+.mh-nav-btn img {
+  width: 26px;
+  height: 26px;
+}
+.mh-nav-letter {
+  font-size: 19px;
+  font-weight: 700;
+}
+/* Tooltip pur CSS — à droite du dock */
+.mh-nav-btn::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 16px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--mh-accent);
+  color: var(--mh-white);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+}
+.mh-nav-btn:hover::after,
+.mh-nav-btn:focus-visible::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Fenêtre étroite : la nav reste verticale à gauche,
+   le contenu se décale à sa droite au lieu de passer dessous */
+@media (max-width: 1150px) {
+  #myhub {
+    padding-left: 96px; /* 5px offset + nav ~66px + gouttière */
+  }
 }
