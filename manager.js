@@ -91,9 +91,15 @@ const Favicon = {
   domainMap: {}, // domaine → clé
 
   async load() {
+    // Thème: icons/light/ (blanc) en thème sombre, icons/dark/ (noir) en clair
+    // (avant: le dossier parent était scanné → 0 icône about: chargée)
+    const mm = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    const aboutSubdir = mm && mm.matches ? 'light' : 'dark';
     const dirs = [
-      PathUtils.join(PathUtils.profileDir, 'chrome', 'sine-mods', 'zen-about-favicons', 'icons'),
+      PathUtils.join(PathUtils.profileDir, 'chrome', 'sine-mods', 'zen-about-favicons', 'icons', aboutSubdir),
       PathUtils.join(PathUtils.profileDir, 'chrome', 'sine-mods', 'CustomFavicon', 'icons'),
+      // Canon chatbots — sous-dossier du canon CF
+      PathUtils.join(PathUtils.profileDir, 'chrome', 'sine-mods', 'CustomFavicon', 'icons', 'Chatbots'),
     ];
     for (const dir of dirs) {
       try {
@@ -125,7 +131,12 @@ const Favicon = {
         const text = new TextDecoder().decode(await IOUtils.read(mapPath));
         const map = JSON.parse(text);
         for (const [domain, filename] of Object.entries(map.custom || {})) {
-          this.domainMap[domain] = filename.replace(/\.png$/i, '').toLowerCase();
+          // basename: "Chatbots/LeChat.png" → "lechat" (le map référence des sous-dossiers)
+          this.domainMap[domain] = filename
+            .split(/[/\\]/)
+            .pop()
+            .replace(/\.png$/i, '')
+            .toLowerCase();
         }
       }
     } catch (e) {
