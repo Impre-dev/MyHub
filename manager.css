@@ -11,7 +11,7 @@
   --mh-white: #ffffff;
   --mh-text: #eaf1fb;
   --mh-text-dim: #9fb4d0;
-  --mh-glass: rgba(20, 32, 52, 0.55);
+  --mh-glass: rgba(8, 10, 14, 0); /* glass = blur pur, le fond sombre existe déjà */
   --mh-glass-border: rgba(255, 255, 255, 0.12);
   --mh-radius: 14px;
   --mh-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
@@ -21,7 +21,7 @@
   :root {
     --mh-text: #142034;
     --mh-text-dim: #5a6e8c;
-    --mh-glass: rgba(255, 255, 255, 0.65);
+    --mh-glass: rgba(255, 255, 255, 0);
     --mh-glass-border: rgba(26, 54, 93, 0.12);
     --mh-shadow: 0 8px 32px rgba(26, 54, 93, 0.15);
   }
@@ -33,6 +33,9 @@
   padding: 0;
 }
 
+html {
+  scrollbar-width: none; /* scrollbar masquée — scroll molette conservé */
+}
 html,
 body {
   background: transparent; /* wallpaper plus tard */
@@ -51,23 +54,21 @@ body {
 .mh-header {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 18px;
   margin-bottom: 36px;
 }
 .mh-logo {
-  width: 64px;
-  height: 64px;
+  width: 120px;
+  height: 120px;
 }
 .mh-header h1 {
-  font-size: 28px;
+  font-size: 68px;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--mh-text);
-}
-.mh-sub {
-  font-size: 14px;
-  color: var(--mh-text-dim);
-  margin-top: 2px;
+  display: flex;
+  justify-content: center;
 }
 
 /* ── Sections ───────────────────────────────────────────── */
@@ -104,11 +105,46 @@ body {
   font-size: 14px;
   min-width: 170px;
 }
-.mh-hint {
+/* Info-bulle au focus — pur CSS :focus-within (event-driven par nature) */
+.mh-input-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+.mh-tip {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  background: var(--mh-dark);
+  color: var(--mh-white);
   font-size: 12px;
-  color: var(--mh-text-dim);
-  width: 100%;
-  padding-left: 182px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--mh-accent);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+  z-index: 10;
+}
+.mh-tip::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 16px;
+  width: 8px;
+  height: 8px;
+  background: var(--mh-dark);
+  border-left: 1px solid var(--mh-accent);
+  border-top: 1px solid var(--mh-accent);
+  transform: rotate(45deg);
+}
+.mh-input-wrap:focus-within .mh-tip {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 input[type='url'],
@@ -166,6 +202,22 @@ button {
     filter 0.15s,
     opacity 0.15s;
 }
+
+/* Bouton icône transparent (restore snapshot) */
+.mh-icon-btn {
+  background: transparent;
+  color: var(--mh-text-dim);
+  border: none;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto; /* pousse en bas à droite de la row */
+  transition: color 0.15s;
+}
+.mh-icon-btn:hover {
+  color: var(--mh-accent);
+  filter: none;
+}
 button:hover {
   filter: brightness(1.12);
 }
@@ -192,7 +244,7 @@ button.mh-ghost:hover {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
   gap: 14px;
-  margin-bottom: 18px;
+  margin-bottom: 27px;
 }
 .mh-tile {
   position: relative;

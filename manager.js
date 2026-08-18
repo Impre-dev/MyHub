@@ -20,8 +20,6 @@ const PREFS = {
   maxRichResults: 'browser.urlbar.maxRichResults',
   topSitesRows: 'browser.newtabpage.activity-stream.topSitesRows',
   maxPerRow: 'browser.newtabpage.activity-stream.topSitesMaxSitesPerRow',
-  newtabEnabled: 'browser.newtabpage.enabled',
-  newtabExtCtrl: 'browser.newtab.extensionControlled',
   backupPinned: 'MyHub.backup.pinned',
 };
 
@@ -161,13 +159,8 @@ const Grid = {
     if (!Array.isArray(this.entries)) this.entries = [];
   },
 
-  /** Écriture live + snapshot de sécurité avant chaque write */
+  /** Écriture live (le snapshot d'ouverture est figé dans sectionFavorites) */
   save() {
-    // Snapshot de l'ancienne valeur (une seule génération)
-    const current = Prefs.getStr(PREFS.pinned, '[]');
-    if (current !== Prefs.getStr(PREFS.backupPinned, '')) {
-      Prefs.setStr(PREFS.backupPinned, current);
-    }
     suppressObserver = true;
     try {
       Prefs.setStr(PREFS.pinned, JSON.stringify(this.entries));
@@ -175,6 +168,11 @@ const Grid = {
       suppressObserver = false;
     }
     toast('Favoris enregistrés ✓');
+  },
+
+  /** Fige l'état courant comme point de retour (appelé une fois, à l'ouverture) */
+  snapshot() {
+    Prefs.setStr(PREFS.backupPinned, Prefs.getStr(PREFS.pinned, '[]'));
   },
 
   restore() {
@@ -188,7 +186,7 @@ const Grid = {
     }
     this.load();
     renderGrid();
-    toast('Snapshot restauré ✓');
+    toast('Grille du début de session restaurée ✓');
   },
 
   move(from, to) {
@@ -384,48 +382,56 @@ function sectionHomepage(root) {
   });
   observePref(PREFS.startupPage, syncRadio);
 
+  // Info-bulle multi-onglets : visible uniquement au focus de l'input (pur CSS :focus-within)
+  const tip = el('span', { className: 'mh-tip' }, 'Plusieurs onglets : séparer les URLs par un « | »');
+  const wrap = el('span', { className: 'mh-input-wrap' }, input, tip);
+
   root.append(
-    el('div', { className: 'mh-row' }, el('label', { textContent: "URL de la page d'accueil" }), input, currentBtn),
-    el('div', { className: 'mh-hint', textContent: 'Plusieurs onglets : séparer les URLs par un « | »' }),
+    el('div', { className: 'mh-row' }, el('label', { textContent: "URL de la page d'accueil" }), wrap, currentBtn),
     el('div', { className: 'mh-row' }, el('label', { textContent: 'Au démarrage' }), radio),
   );
 }
 
 function sectionFavorites(root) {
   Grid.load(); // charge browser.newtabpage.pinned avant le premier rendu
+  Grid.snapshot(); // fige l'état d'ouverture comme point de retour
   const gridEl = el('div', { className: 'mh-grid', id: 'mh-grid' });
 
-  const numRow = (labelText, pref, def) => {
-    const input = el('input', { type: 'number' });
-    input.value = Prefs.getInt(pref, def);
-    const commit = () => {
-      suppressObserver = true;
-      try {
-        Prefs.setInt(pref, parseInt(input.value, 10) || def);
-      } finally {
-        suppressObserver = false;
-      }
-      toast(`${labelText} enregistré ✓`);
-    };
-    input.addEventListener('change', commit);
-    observePref(pref, () => {
-      input.value = Prefs.getInt(pref, def);
-    });
-    return el('div', { className: 'mh-row' }, el('label', { textContent: labelText }), input);
+  /* Slots : Lignes et Tiles/ligne sont DÉDUITS automatiquement (perRow = 8) */
+  const slotsInput = el('input', { type: 'number', min: 1, max: 200 });
+  slotsInput.value = Prefs.getInt(PREFS.maxRichResults, 22);
+  const commitSlots = () => {
+    const slots = Math.max(1, parseInt(slotsInput.value, 10) || 22);
+    const rows = Math.max(1, Math.ceil(slots / 8));
+    suppressObserver = true;
+    try {
+      Prefs.setInt(PREFS.maxRichResults, slots);
+      Prefs.setInt(PREFS.topSitesRows, rows);
+      Prefs.setInt(PREFS.maxPerRow, 8);
+    } finally {
+      suppressObserver = false;
+    }
+    toast(`Slots enregistrés ✓ (grille déduite : ${rows} lignes × 8)`);
   };
-
-  const restoreBtn = el('button', {
-    className: 'mh-ghost',
-    textContent: '↺ Restaurer le snapshot',
-    onclick: () => Grid.restore(),
+  slotsInput.addEventListener('change', commitSlots);
+  observePref(PREFS.maxRichResults, () => {
+    slotsInput.value = Prefs.getInt(PREFS.maxRichResults, 22);
   });
 
-  (root.append(gridEl, el('div', { className: 'mh-row' }, el('label', { textContent: 'Grille' }), restoreBtn)),
-    root.append(
-      numRow('Slots (maxRichResults)', PREFS.maxRichResults, 22),
-      numRow('Lignes (topSitesRows)', PREFS.topSitesRows, 4),
-      numRow('Tiles / ligne', PREFS.maxPerRow, 8),
-    ));
+  // Bouton restore : SVG transparent, en bas à droite de la ligne Slots
+  const restoreBtn = el('button', {
+    className: 'mh-icon-btn',
+    title: 'Restaurer la grille telle qu\u2019elle était à l\u2019ouverture de la page',
+    onclick: () => Grid.restore(),
+  });
+  restoreBtn.innerHTML =
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg>';
+
+  // Même info-bulle au focus que l'input homepage
+  const slotsTip = el('span', { className: 'mh-tip' }, 'Lignes et tuiles/ligne du newtab sont déduites automatiquement (× 8 / ligne)');
+  const slotsWrap = el('span', { className: 'mh-input-wrap' }, slotsInput, slotsTip);
+
+  root.append(gridEl, el('div', { className: 'mh-row' }, el('label', { textContent: 'Slots (favoris max)' }), slotsWrap, restoreBtn));
 
   // Reflet des changements externes de la grille
   observePref(PREFS.pinned, () => {
@@ -434,42 +440,11 @@ function sectionFavorites(root) {
   });
 }
 
-function sectionNewtab(root) {
-  const cb = el('input', { type: 'checkbox' });
-  cb.checked = Prefs.getBool(PREFS.newtabEnabled, true);
-  cb.addEventListener('change', () => {
-    suppressObserver = true;
-    try {
-      Prefs.setBool(PREFS.newtabEnabled, cb.checked);
-    } finally {
-      suppressObserver = false;
-    }
-    toast('Préférence newtab enregistrée ✓');
-  });
-  observePref(PREFS.newtabEnabled, () => {
-    cb.checked = Prefs.getBool(PREFS.newtabEnabled, true);
-  });
-
-  const extCtrl = Prefs.getBool(PREFS.newtabExtCtrl, false);
-  const status = el('span', {
-    className: 'mh-status',
-    textContent: extCtrl
-      ? "⚙ Une extension contrôle le nouvel onglet (NewTab/redirect) — l'URL custom du newtab se gère dans about:addons"
-      : 'Aucune extension ne contrôle le nouvel onglet',
-  });
-
-  root.append(
-    el('div', { className: 'mh-row' }, el('label', { textContent: 'Page nouvel onglet (Activity Stream)' }), cb),
-    el('div', { className: 'mh-row' }, status),
-  );
-}
-
 /* ═══════════════ Boot ═══════════════ */
 
 const SECTIONS = [
   { id: 'homepage', title: 'Accueil & Démarrage', build: sectionHomepage },
   { id: 'favorites', title: 'Favoris', build: sectionFavorites },
-  { id: 'newtab', title: 'Nouvel onglet', build: sectionNewtab },
 ];
 
 (async function boot() {

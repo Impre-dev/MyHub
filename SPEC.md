@@ -10,7 +10,8 @@
 **À terme** : le point d'entrée unique de configuration de *tous* les mods Impre
 (nœuds de la molécule) et des prefs Firefox/Zen qui vont avec (l'œil central).
 
-**V1 (scope actuel)** : l'objectif principal — Accueil, Newtab, Favoris.
+**V1 (scope actuel)** : l'objectif principal — Accueil + Favoris (section newtab
+retirée lors de l'épuration : Activity Stream contrôlé par extension, redondant).
 L'architecture sections déclaratives est pensée dès le départ pour accueillir
 les futurs modules sans refonte.
 
@@ -54,7 +55,6 @@ Ajouter un futur module (URLBar-2.0, CustomFavicon...) = ajouter une section.
 const SECTIONS = [
   { id: 'homepage',  title: 'Accueil & Démarrage', prefs: [...] },
   { id: 'favorites', title: 'Favoris',             grid: true, prefs: [...] },
-  { id: 'newtab',    title: 'Nouvel onglet',       prefs: [...], readonly: [...] },
   // Futur : { id: 'urlbar', module: 'URLBar-2.0', prefs: [...] }, etc.
 ];
 ```
@@ -71,9 +71,9 @@ const SECTIONS = [
 | Pref | Type | Contrôle UI |
 |---|---|---|
 | `browser.newtabpage.pinned` | string (JSON) | Grille drag & drop — tiles `{url, label, baseDomain}` |
-| `browser.urlbar.maxRichResults` | int | Nombre de slots |
-| `browser.newtabpage.activity-stream.topSitesRows` | int | Lignes (valeur actuelle : 4) |
-| `browser.newtabpage.activity-stream.topSitesMaxSitesPerRow` | int | Tiles/ligne (default : 8) |
+| `browser.urlbar.maxRichResults` | int | Nombre de slots (seule input) |
+| `browser.newtabpage.activity-stream.topSitesRows` | int | **Auto-déduit** : `ceil(slots / 8)` |
+| `browser.newtabpage.activity-stream.topSitesMaxSitesPerRow` | int | **Auto-déduit** : `8` |
 
 Comportements grille :
 - **Drag & drop HTML5 natif** → réordonne le tableau JSON → `setStringPref` live
@@ -84,17 +84,12 @@ Comportements grille :
 - **Snapshot de sécurité** : backup du JSON en pref `myhub.backup.pinned` avant
   chaque write + bouton « restaurer »
 
-### Section `newtab` — Nouvel onglet
+### Newtab — retiré (épuration)
 
-| Pref | Type | Contrôle UI |
-|---|---|---|
-| `browser.newtabpage.enabled` | bool | Checkbox (activity stream vs page vide) |
-| `browser.newtab.extensionControlled` | bool | ⚠️ **Lecture seule** — statut extension NewTab |
-
-> ⚠️ Verdict d'enquête : `browser.newtab.url` est **morte côté moteur** (jamais
-> lue, `AboutNewTab.newTabURL` la dépasse). Newtab custom = extension
-> (`chrome_url_overrides.newtab`). La page affiche le statut honnêtement + lien
-> vers about:addons — pas de faux contrôle.
+Section supprimée : `browser.newtabpage.enabled` sans effet visible (le newtab
+est contrôlé par l'extension NewTab/CustomTab) et le statut `extensionControlled`
+n'apportait rien. Verdict d'enquête conservé pour mémoire : `browser.newtab.url`
+est **morte côté moteur** — newtab custom = extension (`chrome_url_overrides.newtab`).
 
 ## ⚙️ Contraintes techniques
 
