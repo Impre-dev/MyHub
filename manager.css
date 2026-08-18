@@ -339,8 +339,11 @@ button.mh-ghost:hover {
 /* ── Toast ──────────────────────────────────────────────── */
 .mh-toast {
   position: fixed; /* hors flux — le header centré ne bouge jamais */
-  top: 28px;
-  right: 28px;
+  bottom: 28px;
+  left: 50%;
+  transform: translate(-50%, 16px); /* sous l'écran → monte à l'apparition */
+  opacity: 0;
+  pointer-events: none;
   background: var(--mh-accent);
   color: var(--mh-white);
   font-size: 13px;
@@ -348,7 +351,13 @@ button.mh-ghost:hover {
   padding: 8px 16px;
   border-radius: 20px;
   box-shadow: var(--mh-shadow);
-  transition: opacity 0.25s;
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2),
+    opacity 0.3s;
+}
+.mh-toast.show {
+  transform: translate(-50%, 0);
+  opacity: 1;
 }
 .mh-toast.warn {
   background: #b63b39;

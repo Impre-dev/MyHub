@@ -78,9 +78,14 @@ function toast(msg, warn = false) {
   el.textContent = msg;
   el.hidden = false;
   el.classList.toggle('warn', warn);
+  // rAF : laisser le layout se poser avant d'animer (montée depuis le bas)
+  requestAnimationFrame(() => el.classList.add('show'));
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
-    el.hidden = true;
+    el.classList.remove('show'); // descend
+    toastTimer = setTimeout(() => {
+      el.hidden = true;
+    }, 350); // attends la fin de la descente
   }, 2200);
 }
 
