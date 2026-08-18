@@ -59,9 +59,13 @@ Un mod sans aucun contrat reste invisible du hub — rétro-compatible par const
 
 ### V1.1 — Fixes prérequis (suppression de la friction structurelle)
 
-1. **Favoris dynamiques** : `manager.js` passe de l'écriture brute de la pref à
-   `NewTabUtils.pinnedLinks.pin/unpin` → cache live + notif `newtab-link-changed`
-   → urlbar/newtab rafraîchis sans restart
+1. **Favoris dynamiques** ✅ **fait (commit d59a8f1)** — archi finale ≠ plan initial :
+   la page (`manager.js`) écrit la **pref brute** (`browser.newtabpage.pinned`,
+   guards anti-wipe) ; `MyHub.uc.js` (contexte browser = VRAIE instance NewTabUtils)
+   observe la pref et **réconcilie** le cache `pinnedLinks` (unpin-all + re-pin
+   `{url, label, title}`), puis `pinnedCache.expire() + refresh({broadcast:true})`
+   du feed AS `feeds.system.topsites` → store Redux → urlbar sans restart.
+   Détails : appendice « Topologie des caches top sites » en fin de spec
 2. **getIconKey généralisé** : `chrome://sine/content/<modId>/…` → clé `<modId>` —
    toute future page de mod Sine est auto-résolue (dernier patch manuel de ce type)
 3. **COMPACT_PATTERNS en pref** (`user.urlbar.compactPatterns`, séparateur `|`) —
@@ -125,4 +129,42 @@ Priorisation par gain de friction :
 ## État
 
 - ✅ V1 livrée (accueil, favoris drag & drop, snapshot, urlbar, favicon tab)
-- 🎯 Prochaine étape : **V1.1 fixes** (indépendants, quick wins) puis **V1.2 sidebar**
+- ✅ V1.1 fix #1 « favoris dynamiques » livré et validé (commit d59a8f1)
+- 🎯 Prochaine étape : **V1.1 fixes restants** (getIconKey, compactPatterns, canon icônes, fusion mc-bg) puis **V1.2 sidebar**
+
+## Appendice — Topologie des caches top sites (Zen, 2026-08)
+
+Enquête post-crash (source extrait des omni.ja). La chaîne complète entre la pref
+et l'urlbar compte **4 couches de caches**, dont deux leurres :
+
+```
+pref browser.newtabpage.pinned
+  └─ NewTabUtils.pinnedLinks (cache mémoire, contexte browser)      [couche 1]
+       └─ feed ActivityStream "feeds.system.topsites" (TopSitesFeed.sys.mjs)
+          — son PROPRE pinnedCache (LinksCache) + store Redux        [couche 2]
+             └─ AboutNewTab.getTopSites() lit store.getState().TopSites.rows
+                  └─ UrlbarProviderTopSites.startQuery() → urlbar
+```
+
+- **Pref `browser.topsites.component.enabled = false`** (défaut Zen) → l'urlbar
+  passe par `AboutNewTab.getTopSites()`, PAS par le composant
+  `modules/topsites/TopSites.sys.mjs` (singleton) — ce dernier reste rafraîchi en
+  double couverture au cas où la pref changerait.
+- La notif `newtab-link-changed` ne réveille RIEN pour les pins : le flow natif
+  passe par des actions Redux émises depuis la page ActivityStream. **Seul appel
+  qui fonctionne** : `feed.pinnedCache.expire() + feed.refresh({broadcast:true})`.
+
+### Leçons (coût : un wipe de favoris + un crash Zen)
+
+1. **`ChromeUtils.importESModule` depuis une page privilégiée charge une INSTANCE
+   SÉPARÉE du module** (registre propre) — un NewTabUtils importé en page a un
+   cache `pinnedLinks` VIDE, et un `save()` qui en découle écrase la pref.
+   → Règle : les modules "browser-state" se manipulent depuis le `.uc.js`
+   (contexte browser), jamais depuis la page.
+2. **Observers pref = SYNCHRONES** : un handler qui réécrit la pref observée se
+   ré-entre en boucle → stack overflow. → Verrou de ré-entrance obligatoire
+   (flag + `try/finally`).
+3. **Jamais écrire un état vide** : guards anti-wipe dans `Grid.save()` et
+   auto-présence MyHub différée si grille vide au chargement.
+4. Champs : NewTabUtils resérialise la pref avec `title` ; MyHub utilise `label`
+   → pinner les DEUX + normaliser `label ← title` à la lecture.
