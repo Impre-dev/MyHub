@@ -793,6 +793,12 @@ function sectionFavSites(root) {
 }
 
 function sectionFavExclude(root) {
+  root.append(
+    el('p', {
+      className: 'mh-orphan-count',
+      textContent: 'Domaines sur lesquels CustomFavicon ne touche à rien : la favicon native du site est préservée (pas de repli Google HD).',
+    }),
+  );
   const chips = el('div', { className: 'mh-chips' });
   for (const d of Favicons.map.exclude) {
     const chip = el('span', { className: 'mh-chip' }, d);
@@ -879,15 +885,15 @@ const SECTIONS = [
 ];
 
 const PAGES = [
-  { id: 'firefox', label: 'Firefox', sections: SECTIONS },
+  { id: 'home', label: 'Home', sections: SECTIONS },
   {
     id: 'favicons',
     label: 'Favicons',
     sections: [
       { id: 'fav-chatbots', title: 'Chatbots', build: sectionFavChatbots },
       { id: 'fav-sites', title: 'Sites', build: sectionFavSites },
-      { id: 'fav-exclude', title: 'Domaines exclus', build: sectionFavExclude },
       { id: 'fav-orphans', title: 'Icônes orphelines', build: sectionFavOrphans },
+      { id: 'fav-exclude', title: 'Domaines exclus', build: sectionFavExclude },
     ],
   },
   // V2.x : { id: 'mods', label: 'Mods', ... }
@@ -944,7 +950,7 @@ function renderPage(id) {
   });
   Prefs.setStr(PREFS.page, page.id); // dernière page mémorisée
   // La grille favoris est créée vide par sectionFavorites → remplir après rendu.
-  // Couvre le boot ET chaque switch de retour sur la page Firefox.
+  // Couvre le boot ET chaque switch de retour sur la page Home.
   if (document.getElementById('mh-grid')) renderGrid();
 }
 
@@ -958,7 +964,7 @@ function renderPage(id) {
   // sont sync et lisaient un état vide pendant que les grilles async chargeaient.
   if (initial === 'favicons') await Favicons.load();
   history.replaceState(null, '', '#' + initial); // pas d'événement parasite au boot
-  renderPage(initial); // renderPage gère le renderGrid de la page Firefox
+  renderPage(initial); // renderPage gère le renderGrid de la page Home
   window.addEventListener('hashchange', async (ev) => {
     const id = location.hash.slice(1) || PAGES[0].id;
     if (id === 'favicons' && !Favicons.loaded) await Favicons.load();

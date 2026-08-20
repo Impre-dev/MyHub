@@ -55,11 +55,6 @@ flowchart TD
 
 Même code de copie, deux canaux. Formats acceptés : `.png` (contrôlé à l'entrée).
 
-### Liste `exclude`
-
-- Une ligne par domaine exclu, toggle on/off
-- Ajout/suppression comme la grille, sans icône
-
 ### Section orphelins (bas de page)
 
 - Énumération `IOUtils.getChildren(icons/)` + `icons/Chatbots/` au chargement de la
@@ -67,6 +62,14 @@ Même code de copie, deux canaux. Formats acceptés : `.png` (contrôlé à l'en
 - PNG présents sur disque mais référencés par aucune ligne → mini-tuiles
 - **Suppression définitive** (`IOUtils.remove`) — un par un, geste explicite.
   Jamais automatique : les `_white` et autres backups sont en sécurité
+
+### Liste `exclude` (tout en bas)
+
+- Une ligne par domaine exclu, toggle on/off
+- Ajout/suppression comme la grille, sans icône
+- Rôle : CustomFavicon ne touche à rien sur ces domaines — favicon native
+  préservée, pas de repli Google HD. Cas marginal d'admin, d'où la position
+  en fin de page
 
 ## Mécanique
 
