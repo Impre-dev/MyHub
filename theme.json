@@ -3,7 +3,7 @@
   "name": "MyHub",
   "description": "Hub de configuration — Accueil, Newtab, Favoris (grille drag & drop), prefs live. Point d'entrée futur de tous les mods Impre.",
   "author": "Impre",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "js": true,
   "scripts": {
     "MyHub.uc.js": {

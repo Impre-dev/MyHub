@@ -107,6 +107,7 @@ Priorisation par gain de friction :
    chrome privilégiée qui exécute git = surface d'exécution de code + zéro review —
    le push reste un geste développeur (terminal), le hub ne touche qu'aux fichiers du profil
 2. **Page URLBar** : éditeur `compactPatterns` (liste éditable), toggles des features
+   (idée : sections séparées urlbar du haut / urlbar flottante, cf. page Favicons)
 3. **Page MyJS** : `POPUP_BG` en sélecteur couleur
 4. **Page Sidebot** : gestion icônes sites IA (même mécanique que favicon manager)
 

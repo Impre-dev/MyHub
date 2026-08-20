@@ -337,6 +337,8 @@ button.mh-ghost:hover {
   border-radius: 6px;
 }
 .mh-tile-add {
+  min-height: 80px; /* hauteur d'une vignette pleine : padding 24 + img 32 + gap 8 + label ~15 */
+  justify-content: center;
   border-style: dashed;
   border-width: 2px;
   cursor: pointer;
@@ -455,6 +457,58 @@ button.mh-ghost:hover {
 .mh-nav-btn:focus-visible::after {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
+}
+
+/* ── Page Favicons : chips exclude + drop target ────────── */
+.mh-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.mh-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--mh-accent-soft);
+  color: var(--mh-text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.mh-chip button {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+  opacity: 0.65;
+}
+.mh-chip button:hover {
+  opacity: 1;
+  color: #b63b39;
+}
+.mh-chip-add {
+  border: 1px dashed var(--mh-glass-border);
+  background: transparent;
+  color: var(--mh-text-dim);
+  cursor: pointer;
+}
+.mh-chip-add:hover {
+  color: var(--mh-accent);
+  border-color: var(--mh-accent);
+}
+.mh-fav-grid.fav-drop-target {
+  outline: 2px dashed var(--mh-accent);
+  outline-offset: 6px;
+  border-radius: 10px;
+}
+.mh-orphan-count {
+  font-size: 12.5px;
+  color: var(--mh-text-dim);
+  margin-bottom: 14px;
 }
 
 /* Fenêtre étroite : la nav reste verticale à gauche,

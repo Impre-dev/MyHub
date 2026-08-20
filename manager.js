@@ -381,6 +381,126 @@ function renderGrid() {
   gridEl.appendChild(addTile);
 }
 
+/* ═══════════════ Page Favicons — manager CustomFavicon (V2.1) ═══════════════ */
+
+const CF_ROOT = PathUtils.join(PathUtils.profileDir, 'chrome', 'sine-mods', 'CustomFavicon');
+const CF_MAP = PathUtils.join(CF_ROOT, 'favicon-map.json');
+const CF_MAP_BAK = CF_MAP + '.provisional-backup';
+const CF_ICONS = PathUtils.join(CF_ROOT, 'icons');
+const CHATBOTS = 'Chatbots';
+
+const Favicons = {
+  map: { custom: {}, exclude: [] },
+  orphans: [],
+  loaded: false,
+
+  async load() {
+    try {
+      this.map = JSON.parse(await IOUtils.readUTF8(CF_MAP));
+      if (!this.map.custom) this.map.custom = {};
+      if (!Array.isArray(this.map.exclude)) this.map.exclude = [];
+    } catch (e) {
+      console.warn(`${TAG} favicon-map illisible : ${e.message}`);
+    }
+    await this.scanOrphans();
+    this.loaded = true;
+  },
+
+  /** PNG présents sur disque mais référencés par aucune ligne du map */
+  async scanOrphans() {
+    const referenced = new Set(Object.values(this.map.custom).map((p) => p.split('/').pop().toLowerCase()));
+    const orphans = [];
+    for (const sub of ['', CHATBOTS]) {
+      const base = sub ? PathUtils.join(CF_ICONS, sub) : CF_ICONS;
+      let files = [];
+      try {
+        files = await IOUtils.getChildren(base);
+      } catch (e) {
+        continue;
+      }
+      for (const f of files) {
+        const name = PathUtils.filename(f);
+        if (!name.toLowerCase().endsWith('.png')) continue;
+        if (!referenced.has(name.toLowerCase())) orphans.push(sub ? `${sub}/${name}` : name);
+      }
+    }
+    this.orphans = orphans;
+  },
+
+  /** Ré-écriture sécurisée : re-parse check + backup (pattern favoris) */
+  async save() {
+    const str = JSON.stringify(this.map, null, 2);
+    try {
+      JSON.parse(str);
+    } catch (e) {
+      return toast('Refus : map sérialisé invalide', true);
+    }
+    try {
+      await IOUtils.copy(CF_MAP, CF_MAP_BAK, { overwrite: true });
+      await IOUtils.writeUTF8(CF_MAP, str + '\n');
+    } catch (e) {
+      return toast(`Écriture impossible : ${e.message}`, true);
+    }
+    toast('Map enregistré ✓ — restart Zen pour appliquer');
+  },
+
+  absPath(rel) {
+    return PathUtils.join(CF_ICONS, ...rel.split('/'));
+  },
+  fileUrl(rel) {
+    return 'file:///' + encodeURI(this.absPath(rel).replace(/\\/g, '/'));
+  },
+
+  /** Copie un PNG ({name, path} du picker, ou File du drag-drop) dans le tiroir sub */
+  async importIcon(src, sub) {
+    const name = String(src.name || '').replace(/[\\/]/g, '_'); // anti path traversal
+    if (!name.toLowerCase().endsWith('.png')) {
+      toast('PNG uniquement', true);
+      return null;
+    }
+    try {
+      const bytes = src.path ? await IOUtils.read(src.path) : new Uint8Array(await src.arrayBuffer());
+      const dir = sub ? PathUtils.join(CF_ICONS, sub) : CF_ICONS;
+      await IOUtils.makeDirectory(dir, { ignoreExisting: true });
+      await IOUtils.write(PathUtils.join(dir, name), bytes, { overwrite: true });
+      return sub ? `${sub}/${name}` : name;
+    } catch (e) {
+      toast(`Import impossible : ${e.message}`, true);
+      return null;
+    }
+  },
+
+  /** Déplacement racine ⇄ Chatbots/ (drag inter-sections) */
+  async moveTo(rel, sub) {
+    const name = rel.split('/').pop();
+    const destRel = sub ? `${sub}/${name}` : name;
+    await IOUtils.move(this.absPath(rel), this.absPath(destRel));
+    return destRel;
+  },
+};
+
+/** File picker natif → {name, path} | null */
+function favPicker() {
+  return new Promise((resolve) => {
+    try {
+      const fp = Cc['@mozilla.org/filepicker;1'].createInstance(Ci.nsIFilePicker);
+      fp.init(window, 'Choisir une icône PNG', Ci.nsIFilePicker.modeOpen);
+      fp.appendFilter('Images PNG', '*.png');
+      fp.open((rv) => {
+        if (rv !== Ci.nsIFilePicker.returnOK && rv !== Ci.nsIFilePicker.returnReplace) return resolve(null);
+        resolve({ name: fp.file.leafName, path: fp.file.path });
+      });
+    } catch (e) {
+      // Fallback : <input type=file> (pages où Cc/Ci ne sont pas exposés)
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.png';
+      input.addEventListener('change', () => resolve(input.files[0] || null), { once: true });
+      input.click();
+    }
+  });
+}
+
 /* ═══════════════ Sections déclaratives ═══════════════ */
 
 function el(tag, attrs = {}, ...children) {
@@ -525,6 +645,232 @@ function sectionFavorites(root) {
   });
 }
 
+/* ═══════════════ Page Favicons — sections ═══════════════ */
+
+let favDropGuard = false;
+function favPreventFileNavigation() {
+  if (favDropGuard) return;
+  favDropGuard = true;
+  // Empêcher la navigation si un fichier est droppé hors des zones gérées
+  window.addEventListener('dragover', (ev) => ev.preventDefault());
+  window.addEventListener('drop', (ev) => ev.preventDefault());
+}
+
+function favNormalizeDomain(v) {
+  return String(v || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '');
+}
+
+async function favAddDomain(sub) {
+  const d = favNormalizeDomain(prompt('Domaine (ex: example.com) :', ''));
+  if (!d) return;
+  if (Favicons.map.custom[d]) return toast('Domaine déjà présent', true);
+  const src = await favPicker();
+  if (!src) return;
+  const rel = await Favicons.importIcon(src, sub);
+  if (!rel) return;
+  Favicons.map.custom[d] = rel;
+  await Favicons.save();
+  renderPage('favicons');
+}
+
+/** Grille d'une section — sub: '' (Sites) ou 'Chatbots' */
+async function buildFavGrid(sub, root) {
+  favPreventFileNavigation();
+  if (!Favicons.loaded) await Favicons.load();
+  const grid = el('div', { className: 'mh-grid mh-fav-grid' });
+  grid.dataset.sub = sub;
+  root.append(grid);
+
+  const entries = Object.entries(Favicons.map.custom).filter(([, p]) => (sub ? p.startsWith(CHATBOTS + '/') : !p.startsWith(CHATBOTS + '/')));
+
+  for (const [domain, rel] of entries) {
+    const tile = el('div', { className: 'mh-tile', draggable: true });
+    tile.dataset.domain = domain;
+    tile.append(el('img', { src: Favicons.fileUrl(rel), alt: '' }));
+    tile.append(el('span', { className: 'mh-label', textContent: domain, title: rel }));
+
+    // Actions hover : remplacer / retirer la ligne (le PNG devient orphelin)
+    const actions = el('div', { className: 'mh-actions' });
+    actions.append(
+      el('button', {
+        textContent: '✎',
+        title: 'Remplacer l\u2019icône (ou drag-drop d\u2019un PNG)',
+        onclick: async () => {
+          const src = await favPicker();
+          if (!src) return;
+          const newRel = await Favicons.importIcon(src, sub);
+          if (!newRel) return;
+          Favicons.map.custom[domain] = newRel;
+          await Favicons.save();
+          renderPage('favicons');
+        },
+      }),
+    );
+    actions.append(
+      el('button', {
+        textContent: '✕',
+        title: 'Retirer la ligne (le PNG devient orphelin)',
+        onclick: async () => {
+          delete Favicons.map.custom[domain];
+          await Favicons.scanOrphans();
+          await Favicons.save();
+          renderPage('favicons');
+        },
+      }),
+    );
+    tile.append(actions);
+
+    // Drag de la tuile → déplacement inter-sections
+    tile.addEventListener('dragstart', (ev) => {
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('text/fav-domain', domain);
+      tile.classList.add('dragging');
+    });
+    tile.addEventListener('dragend', () => tile.classList.remove('dragging'));
+
+    // Drop d'un FICHIER image sur la tuile → remplacement de l'icône
+    tile.addEventListener('dragover', (ev) => {
+      if ([...ev.dataTransfer.types].includes('Files')) ev.preventDefault();
+    });
+    tile.addEventListener('drop', async (ev) => {
+      const f = ev.dataTransfer.files?.[0];
+      if (!f) return; // drag interne → la grille gère
+      ev.preventDefault();
+      ev.stopPropagation();
+      const newRel = await Favicons.importIcon(f, sub);
+      if (!newRel) return;
+      Favicons.map.custom[domain] = newRel;
+      await Favicons.save();
+      renderPage('favicons');
+    });
+
+    grid.append(tile);
+  }
+
+  // Tuile "+ Ajouter" — la section détermine le tiroir
+  const addTile = el('div', { className: 'mh-tile mh-tile-add', textContent: '+ Ajouter' });
+  addTile.addEventListener('click', () => favAddDomain(sub));
+  grid.append(addTile);
+
+  // Drop inter-sections : une tuile draguée ici change de tiroir
+  grid.addEventListener('dragover', (ev) => {
+    const types = [...ev.dataTransfer.types];
+    if (types.includes('text/fav-domain') || types.includes('Files')) {
+      ev.preventDefault();
+      grid.classList.add('fav-drop-target');
+    }
+  });
+  grid.addEventListener('dragleave', () => grid.classList.remove('fav-drop-target'));
+  grid.addEventListener('drop', async (ev) => {
+    grid.classList.remove('fav-drop-target');
+    if (ev.dataTransfer.files?.length) return ev.preventDefault(); // fichier = remplacement tuile only
+    const domain = ev.dataTransfer.getData('text/fav-domain');
+    if (!domain) return;
+    ev.preventDefault();
+    const rel = Favicons.map.custom[domain];
+    if (!rel) return;
+    const inSub = rel.startsWith(CHATBOTS + '/');
+    if ((sub === CHATBOTS) === inSub) return; // déjà au bon endroit
+    try {
+      Favicons.map.custom[domain] = await Favicons.moveTo(rel, sub);
+      await Favicons.save();
+      renderPage('favicons');
+    } catch (e) {
+      toast(`Déplacement impossible : ${e.message}`, true);
+    }
+  });
+}
+
+function sectionFavChatbots(root) {
+  return buildFavGrid(CHATBOTS, root);
+}
+function sectionFavSites(root) {
+  return buildFavGrid('', root);
+}
+
+function sectionFavExclude(root) {
+  const chips = el('div', { className: 'mh-chips' });
+  for (const d of Favicons.map.exclude) {
+    const chip = el('span', { className: 'mh-chip' }, d);
+    chip.append(
+      el('button', {
+        textContent: '✕',
+        title: 'Retirer de la liste',
+        onclick: async () => {
+          Favicons.map.exclude = Favicons.map.exclude.filter((v) => v !== d);
+          await Favicons.save();
+          renderPage('favicons');
+        },
+      }),
+    );
+    chips.append(chip);
+  }
+  chips.append(
+    el('button', {
+      className: 'mh-chip mh-chip-add',
+      textContent: '+ domaine',
+      onclick: async () => {
+        const d = favNormalizeDomain(prompt('Domaine à exclure (CF ne fera rien dessus) :', ''));
+        if (!d) return;
+        if (!Favicons.map.exclude.includes(d)) {
+          Favicons.map.exclude.push(d);
+          await Favicons.save();
+          renderPage('favicons');
+        }
+      },
+    }),
+  );
+  root.append(chips);
+}
+
+function sectionFavOrphans(root) {
+  const section = root.closest('.mh-section');
+  if (!Favicons.orphans.length) {
+    section.hidden = true;
+    return;
+  }
+  root.append(
+    el('p', {
+      className: 'mh-orphan-count',
+      textContent: `${Favicons.orphans.length} PNG non référencés par le map. Suppression définitive du disque.`,
+    }),
+  );
+  const grid = el('div', { className: 'mh-grid' });
+  for (const rel of Favicons.orphans) {
+    const name = rel
+      .split('/')
+      .pop()
+      .replace(/\.png$/i, '');
+    const tile = el('div', { className: 'mh-tile' });
+    tile.append(el('img', { src: Favicons.fileUrl(rel), alt: '' }));
+    tile.append(el('span', { className: 'mh-label', textContent: name, title: rel }));
+    const actions = el('div', { className: 'mh-actions' });
+    actions.append(
+      el('button', {
+        textContent: '✕',
+        title: 'Supprimer définitivement du disque',
+        onclick: async () => {
+          try {
+            await IOUtils.remove(Favicons.absPath(rel));
+          } catch (e) {
+            return toast(`Suppression impossible : ${e.message}`, true);
+          }
+          await Favicons.scanOrphans();
+          toast('PNG supprimé ✓');
+          renderPage('favicons');
+        },
+      }),
+    );
+    tile.append(actions);
+    grid.append(tile);
+  }
+  root.append(grid);
+}
+
 /* ═══════════════ Shell (V1.2) — pages + dock + routing hash ═══════════════ */
 
 const SECTIONS = [
@@ -534,7 +880,17 @@ const SECTIONS = [
 
 const PAGES = [
   { id: 'firefox', label: 'Firefox', sections: SECTIONS },
-  // V2.x : { id: 'mods', label: 'Mods', ... }, { id: 'favicons', label: 'Favicons', ... }
+  {
+    id: 'favicons',
+    label: 'Favicons',
+    sections: [
+      { id: 'fav-chatbots', title: 'Chatbots', build: sectionFavChatbots },
+      { id: 'fav-sites', title: 'Sites', build: sectionFavSites },
+      { id: 'fav-exclude', title: 'Domaines exclus', build: sectionFavExclude },
+      { id: 'fav-orphans', title: 'Icônes orphelines', build: sectionFavOrphans },
+    ],
+  },
+  // V2.x : { id: 'mods', label: 'Mods', ... }
 ];
 
 function hue(str) {
@@ -587,6 +943,9 @@ function renderPage(id) {
     b.classList.toggle('active', b.dataset.page === page.id);
   });
   Prefs.setStr(PREFS.page, page.id); // dernière page mémorisée
+  // La grille favoris est créée vide par sectionFavorites → remplir après rendu.
+  // Couvre le boot ET chaque switch de retour sur la page Firefox.
+  if (document.getElementById('mh-grid')) renderGrid();
 }
 
 (async function boot() {
@@ -595,9 +954,15 @@ function renderPage(id) {
   const fromHash = location.hash.slice(1);
   const saved = Prefs.getStr(PREFS.page, '');
   const initial = PAGES.some((p) => p.id === fromHash) ? fromHash : PAGES.some((p) => p.id === saved) ? saved : PAGES[0].id;
+  // Précharger les données Favicons AVANT le rendu : les sections exclude/orphelins
+  // sont sync et lisaient un état vide pendant que les grilles async chargeaient.
+  if (initial === 'favicons') await Favicons.load();
   history.replaceState(null, '', '#' + initial); // pas d'événement parasite au boot
-  renderPage(initial);
-  renderGrid(); // re-rend la grille avec favicons
-  window.addEventListener('hashchange', () => renderPage(location.hash.slice(1) || PAGES[0].id));
+  renderPage(initial); // renderPage gère le renderGrid de la page Firefox
+  window.addEventListener('hashchange', async (ev) => {
+    const id = location.hash.slice(1) || PAGES[0].id;
+    if (id === 'favicons' && !Favicons.loaded) await Favicons.load();
+    renderPage(id);
+  });
   console.log(`${TAG} prêt — ${PAGES.length} page(s), dock sur « ${initial} »`);
 })();
